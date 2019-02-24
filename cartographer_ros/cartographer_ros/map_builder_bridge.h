@@ -68,6 +68,9 @@ class MapBuilderBridge {
       const NodeOptions& node_options,
       std::unique_ptr<cartographer::mapping::MapBuilderInterface> map_builder,
       tf2_ros::Buffer* tf_buffer);
+  ~MapBuilderBridge() {
+    frontier_detector_.NotifyEnd();
+  }
 
   MapBuilderBridge(const MapBuilderBridge&) = delete;
   MapBuilderBridge& operator=(const MapBuilderBridge&) = delete;

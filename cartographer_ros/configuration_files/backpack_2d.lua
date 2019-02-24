@@ -44,11 +44,10 @@ options = {
 }
 
 POSE_GRAPH.constraint_builder.sampling_ratio = 0.1
-POSE_GRAPH.constraint_builder.sampling_ratio = .0
 POSE_GRAPH.global_sampling_ratio = .0
-POSE_GRAPH.optimize_every_n_nodes = 0
+--POSE_GRAPH.optimize_every_n_nodes = 0
 
-MAP_BUILDER.num_background_threads = 6
+MAP_BUILDER.num_background_threads = 10
 MAP_BUILDER.use_trajectory_builder_2d = true
 TRAJECTORY_BUILDER_2D.num_accumulated_range_data = 10
 

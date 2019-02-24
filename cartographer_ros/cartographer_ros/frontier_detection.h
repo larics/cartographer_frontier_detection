@@ -45,7 +45,6 @@ class LambdaWorker {
 
   ~LambdaWorker() {
     finish();
-    thread_.join();
   }
 
   void finish() {
@@ -54,6 +53,9 @@ class LambdaWorker {
       finished_ = true;
     }
     condition_.notify_one();
+    if (thread_.joinable()) {
+      thread_.join();
+    }
   }
 
   void PushIntoWorkQueue(std::function<void(void)> task) {
@@ -110,6 +112,8 @@ class Detector {
   // Performs local frontier edge detection.
   void HandleSubmapUpdates(
       const std::vector<cartographer::mapping::SubmapId>& submap_ids);
+
+  void NotifyEnd();
 
  private:
   void InitPublisher();
@@ -192,6 +196,8 @@ class Detector {
     }
 
     const cartographer::mapping::SubmapId id;
+    // TODO use a shared pointer with the aliasing constructor instead
+    // of evil reference member
     const cartographer::mapping::Grid2D& grid_original;
     std::unique_ptr<cartographer::mapping::Grid2D> grid_copy;
     bool is_copy;
