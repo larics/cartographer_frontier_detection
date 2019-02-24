@@ -27,6 +27,14 @@
 #include "cartographer/mapping/proto/submap_visualization.pb.h"
 #include "cartographer/mapping/value_conversion_tables.h"
 
+namespace frontier {
+class Detector;
+}
+
+namespace cartographer_ros {
+class MapBuilderBridge;
+}
+
 namespace cartographer {
 namespace mapping {
 
@@ -114,6 +122,9 @@ class Grid2D : public GridInterface {
     CHECK(limits_.Contains(cell_index)) << cell_index;
     return limits_.cell_limits().num_x_cells * cell_index.y() + cell_index.x();
   }
+
+  friend class cartographer_ros::MapBuilderBridge;
+  friend class frontier::Detector;
 
  private:
   MapLimits limits_;

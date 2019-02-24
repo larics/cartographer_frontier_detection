@@ -55,7 +55,8 @@ PoseGraph2D::PoseGraph2D(
     : options_(options),
       optimization_problem_(std::move(optimization_problem)),
       constraint_builder_(options_.constraint_builder_options(), thread_pool),
-      thread_pool_(thread_pool) {
+      thread_pool_(thread_pool),
+      optimizations_performed_(0) {
   if (options.has_overlapping_submaps_trimmer_2d()) {
     const auto& trimmer_options = options.overlapping_submaps_trimmer_2d();
     AddTrimmer(absl::make_unique<OverlappingSubmapsTrimmer2D>(
@@ -122,7 +123,7 @@ std::vector<SubmapId> PoseGraph2D::InitializeGlobalSubmapPoses(
   return {front_submap_id, last_submap_id};
 }
 
-NodeId PoseGraph2D::AppendNode(
+std::pair<NodeId, std::vector<SubmapId>> PoseGraph2D::AppendNode(
     std::shared_ptr<const TrajectoryNode::Data> constant_data,
     const int trajectory_id,
     const std::vector<std::shared_ptr<const Submap2D>>& insertion_submaps,
@@ -147,18 +148,29 @@ NodeId PoseGraph2D::AppendNode(
     LOG(INFO) << "Inserted submap " << submap_id << ".";
     kActiveSubmapsMetric->Increment();
   }
-  return node_id;
+  std::vector<SubmapId> submap_ids;
+  auto submap_data_iter =
+      std::prev(data_.submap_data.EndOfTrajectory(trajectory_id),
+                insertion_submaps.size());
+  for (int i = 0; i < static_cast<int>(insertion_submaps.size()); ++i) {
+    CHECK_EQ(submap_data_iter->data.submap, insertion_submaps.at(i));
+    submap_ids.push_back(submap_data_iter->id);
+    ++submap_data_iter;
+  }
+  return {node_id, submap_ids};
 }
 
-NodeId PoseGraph2D::AddNode(
+std::pair<NodeId, std::vector<SubmapId>> PoseGraph2D::AddNode(
     std::shared_ptr<const TrajectoryNode::Data> constant_data,
     const int trajectory_id,
     const std::vector<std::shared_ptr<const Submap2D>>& insertion_submaps) {
   const transform::Rigid3d optimized_pose(
       GetLocalToGlobalTransform(trajectory_id) * constant_data->local_pose);
 
-  const NodeId node_id = AppendNode(constant_data, trajectory_id,
-                                    insertion_submaps, optimized_pose);
+  const auto node_submap_ids = AppendNode(constant_data, trajectory_id,
+                                          insertion_submaps, optimized_pose);
+  const NodeId& node_id = node_submap_ids.first;
+
   // We have to check this here, because it might have changed by the time we
   // execute the lambda.
   const bool newly_finished_submap =
@@ -167,7 +179,7 @@ NodeId PoseGraph2D::AddNode(
     return ComputeConstraintsForNode(node_id, insertion_submaps,
                                      newly_finished_submap);
   });
-  return node_id;
+  return node_submap_ids;
 }
 
 void PoseGraph2D::AddWorkItem(
@@ -863,6 +875,7 @@ void PoseGraph2D::RunOptimization() {
     data_.landmark_nodes[landmark.first].global_landmark_pose = landmark.second;
   }
   data_.global_submap_poses_2d = submap_data;
+  optimizations_performed_++;
 }
 
 bool PoseGraph2D::CanAddWorkItemModifying(int trajectory_id) {
