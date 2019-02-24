@@ -61,6 +61,9 @@ class ProbabilityGrid : public Grid2D {
       proto::SubmapQuery::Response::SubmapTexture* const texture,
       transform::Rigid3d local_pose) const override;
 
+
+  friend class cartographer_ros::MapBuilderBridge;
+  friend class frontier::Detector;
  private:
   ValueConversionTables* conversion_tables_;
 };

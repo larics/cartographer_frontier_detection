@@ -43,7 +43,7 @@ bool MotionFilter::IsSimilar(const common::Time time,
       << "Motion filter reduced the number of nodes to "
       << 100. * num_different_ / num_total_ << "%.";
   ++num_total_;
-  if (num_total_ > 1 &&
+  if (num_total_ > 30 &&
       time - last_time_ <= common::FromSeconds(options_.max_time_seconds()) &&
       (pose.translation() - last_pose_.translation()).norm() <=
           options_.max_distance_meters() &&

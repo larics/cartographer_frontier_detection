@@ -77,7 +77,7 @@ class PoseGraph2D : public PoseGraph {
   // node data was inserted into the 'insertion_submaps'. If
   // 'insertion_submaps.front().finished()' is 'true', data was inserted into
   // this submap for the last time.
-  NodeId AddNode(
+  std::pair<NodeId, std::vector<SubmapId>> AddNode(
       std::shared_ptr<const TrajectoryNode::Data> constant_data,
       int trajectory_id,
       const std::vector<std::shared_ptr<const Submap2D>>& insertion_submaps)
@@ -159,6 +159,10 @@ class PoseGraph2D : public PoseGraph {
 
   static void RegisterMetrics(metrics::FamilyFactory* family_factory);
 
+  int optimizations_performed() const {
+    return optimizations_performed_;
+  }
+
  private:
   MapById<SubmapId, PoseGraphInterface::SubmapData> GetSubmapDataUnderLock()
       const EXCLUSIVE_LOCKS_REQUIRED(mutex_);
@@ -173,7 +177,7 @@ class PoseGraph2D : public PoseGraph {
 
   // Appends the new node and submap (if needed) to the internal data
   // structures.
-  NodeId AppendNode(
+  std::pair<NodeId, std::vector<SubmapId>> AppendNode(
       std::shared_ptr<const TrajectoryNode::Data> constant_data,
       int trajectory_id,
       const std::vector<std::shared_ptr<const Submap2D>>& insertion_submaps,
@@ -267,6 +271,8 @@ class PoseGraph2D : public PoseGraph {
   PoseGraphData data_ GUARDED_BY(mutex_);
 
   ValueConversionTables conversion_tables_;
+
+  std::atomic<int> optimizations_performed_;
 
   // Allows querying and manipulating the pose graph by the 'trimmers_'. The
   // 'mutex_' of the pose graph is held while this class is used.
