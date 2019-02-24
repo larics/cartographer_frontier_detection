@@ -144,8 +144,9 @@ LaserScanToPointCloudWithIntensities(const LaserMessageType& msg) {
   for (size_t i = 0; i < msg.ranges.size(); ++i) {
     const auto& echoes = msg.ranges[i];
     if (HasEcho(echoes)) {
-      const float first_echo = GetFirstEcho(echoes);
-      if (msg.range_min <= first_echo && first_echo <= msg.range_max) {
+      float first_echo = GetFirstEcho(echoes);
+      if ((msg.range_min <= first_echo && first_echo <= msg.range_max) || first_echo == 0.0) {
+        if (first_echo == 0.0) first_echo = msg.range_max;
         const Eigen::AngleAxisf rotation(angle, Eigen::Vector3f::UnitZ());
         const cartographer::sensor::TimedRangefinderPoint point{
             rotation * (first_echo * Eigen::Vector3f::UnitX()),
