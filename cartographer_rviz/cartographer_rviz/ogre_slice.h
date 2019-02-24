@@ -42,7 +42,7 @@ class OgreSlice {
   // expected to represent the submap frame.
   OgreSlice(const ::cartographer::mapping::SubmapId& id, int slice_id,
             Ogre::SceneManager* const scene_manager,
-            Ogre::SceneNode* const submap_node);
+            Ogre::SceneNode* const submap_node, bool red);
   ~OgreSlice();
 
   OgreSlice(const OgreSlice&) = delete;
@@ -73,6 +73,7 @@ class OgreSlice {
   Ogre::TexturePtr texture_;
   Ogre::MaterialPtr material_;
   bool visibility_ = true;
+  bool red_;
 };
 
 }  // namespace cartographer_rviz

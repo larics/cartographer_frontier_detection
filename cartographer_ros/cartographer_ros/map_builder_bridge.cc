@@ -19,6 +19,8 @@
 #include "absl/memory/memory.h"
 #include "cartographer/io/color.h"
 #include "cartographer/io/proto_stream.h"
+#include "cartographer/mapping/2d/probability_grid.h"
+#include "cartographer/mapping/2d/submap_2d.h"
 #include "cartographer/mapping/pose_graph.h"
 #include "cartographer_ros/msg_conversion.h"
 #include "cartographer_ros_msgs/StatusCode.h"
@@ -101,7 +103,15 @@ MapBuilderBridge::MapBuilderBridge(
     tf2_ros::Buffer* const tf_buffer)
     : node_options_(node_options),
       map_builder_(std::move(map_builder)),
-      tf_buffer_(tf_buffer) {}
+      tf_buffer_(tf_buffer),
+      optimizations_performed_(0),
+      frontier_detector_(static_cast<cartographer::mapping::PoseGraph2D*>(
+          map_builder_->pose_graph())) {
+  map_builder_->pose_graph()->SetGlobalSlamOptimizationCallback(
+      std::bind(&MapBuilderBridge::OnGlobalSlamResult, this));
+}
+
+void MapBuilderBridge::OnGlobalSlamResult() { optimizations_performed_++; }
 
 void MapBuilderBridge::LoadState(const std::string& state_filename,
                                  bool load_frozen_state) {
@@ -128,8 +138,9 @@ int MapBuilderBridge::AddTrajectory(
              ::cartographer::sensor::RangeData range_data_in_local,
              const std::unique_ptr<
                  const ::cartographer::mapping::TrajectoryBuilderInterface::
-                     InsertionResult>) {
-        OnLocalSlamResult(trajectory_id, time, local_pose, range_data_in_local);
+                     InsertionResult>& insertion_result) {
+        OnLocalSlamResult(trajectory_id, time, local_pose, range_data_in_local,
+                          insertion_result);
       });
   LOG(INFO) << "Added trajectory with ID '" << trajectory_id << "'.";
 
@@ -213,6 +224,7 @@ MapBuilderBridge::GetTrajectoryStates() {
 cartographer_ros_msgs::SubmapList MapBuilderBridge::GetSubmapList() {
   cartographer_ros_msgs::SubmapList submap_list;
   submap_list.header.stamp = ::ros::Time::now();
+  submap_list.optimizations_performed = optimizations_performed_;
   submap_list.header.frame_id = node_options_.map_frame;
   for (const auto& submap_id_pose :
        map_builder_->pose_graph()->GetAllSubmapPoses()) {
@@ -225,6 +237,8 @@ cartographer_ros_msgs::SubmapList MapBuilderBridge::GetSubmapList() {
     submap_entry.pose = ToGeometryMsgPose(submap_id_pose.data.pose);
     submap_list.submap.push_back(submap_entry);
   }
+  // frontier_detector_.handleNewSubmapList(submap_list);
+  //frontier_detector_.CheckForOptimizationEvent();
   return submap_list;
 }
 
@@ -501,13 +515,21 @@ SensorBridge* MapBuilderBridge::sensor_bridge(const int trajectory_id) {
 void MapBuilderBridge::OnLocalSlamResult(
     const int trajectory_id, const ::cartographer::common::Time time,
     const Rigid3d local_pose,
-    ::cartographer::sensor::RangeData range_data_in_local) {
+    ::cartographer::sensor::RangeData range_data_in_local,
+    const std::unique_ptr<const ::cartographer::mapping::
+                              TrajectoryBuilderInterface::InsertionResult>&
+        insertion_result) {
   std::shared_ptr<const LocalTrajectoryData::LocalSlamData> local_slam_data =
       std::make_shared<LocalTrajectoryData::LocalSlamData>(
           LocalTrajectoryData::LocalSlamData{time, local_pose,
                                              std::move(range_data_in_local)});
   absl::MutexLock lock(&mutex_);
   local_slam_data_[trajectory_id] = std::move(local_slam_data);
+
+  if (insertion_result)
+    frontier_detector_.HandleSubmapUpdates(
+        insertion_result->insertion_submap_ids);
+  // frontier_detector_.publishUpdatedFrontiers();
 }
 
 }  // namespace cartographer_ros

@@ -13,4 +13,5 @@
 # limitations under the License.
 
 std_msgs/Header header
+int32 optimizations_performed
 cartographer_ros_msgs/SubmapEntry[] submap

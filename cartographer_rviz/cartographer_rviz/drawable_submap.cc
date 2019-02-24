@@ -66,7 +66,8 @@ DrawableSubmap::DrawableSubmap(const ::cartographer::mapping::SubmapId& id,
   for (int slice_index = 0; slice_index < kNumberOfSlicesPerSubmap;
        ++slice_index) {
     ogre_slices_.emplace_back(absl::make_unique<OgreSlice>(
-        id, slice_index, display_context->getSceneManager(), submap_node_));
+        id, slice_index, display_context->getSceneManager(), submap_node_,
+        slice_index == 2));
   }
   // DrawableSubmap creates and manages its visibility property object
   // (a unique_ptr is needed because the Qt parent of the visibility
@@ -114,6 +115,11 @@ void DrawableSubmap::Update(
           .arg(metadata_version_));
 }
 
+inline Eigen::Array2i FromFlatIndex(
+    const int flat_index, const cartographer::io::SubmapTexture& texture) {
+  return {flat_index / texture.width, flat_index % texture.width};
+}
+
 bool DrawableSubmap::MaybeFetchTexture(ros::ServiceClient* const client) {
   absl::MutexLock locker(&mutex_);
   // Received metadata version can also be lower if we restarted Cartographer.
@@ -131,7 +137,7 @@ bool DrawableSubmap::MaybeFetchTexture(ros::ServiceClient* const client) {
   query_in_progress_ = true;
   last_query_timestamp_ = now;
   rpc_request_future_ = std::async(std::launch::async, [this, client]() {
-    std::unique_ptr<::cartographer::io::SubmapTextures> submap_textures =
+    std::shared_ptr<::cartographer::io::SubmapTextures> submap_textures =
         ::cartographer_ros::FetchSubmapTextures(id_, client);
     absl::MutexLock locker(&mutex_);
     query_in_progress_ = false;
@@ -139,6 +145,74 @@ bool DrawableSubmap::MaybeFetchTexture(ros::ServiceClient* const client) {
       // We emit a signal to update in the right thread, and pass via the
       // 'submap_texture_' member to simplify the signal-slot connection
       // slightly.
+      if (submap_textures->textures.size() == 1) {
+        auto& new_texture = submap_textures;
+        auto texture_filtered =
+            cartographer::io::SubmapTexture(new_texture->textures.at(0));
+        //auto frontier_texture =
+        //    cartographer::io::SubmapTexture(new_texture->textures.at(0));
+
+        for (int i = 0; i < texture_filtered.pixels.intensity.size(); i++) {
+          char& intensity = texture_filtered.pixels.intensity.at(i);
+          char& alpha = texture_filtered.pixels.alpha.at(i);
+          // unsigned char add = std::min((unsigned int)255, (unsigned
+          // int)(submap_texture.pixels.intensity[i]) + (unsigned
+          // int)(submap_texture.pixels.alpha[i]));
+          if (alpha > 0) {
+            alpha = 255;
+          }
+          if (intensity > 0) {
+            if (intensity < 15)
+              intensity = 0;
+            else
+              intensity = 255;
+          }
+        }
+        /*const int w = texture_filtered.width;
+        const int h = texture_filtered.height;
+        auto is_unknown = [&texture_filtered](int index) {
+          return texture_filtered.pixels.intensity.at(index) == 0 &&
+              texture_filtered.pixels.alpha.at(index) == 0;
+        };
+        auto is_free = [&texture_filtered](int index) {
+          return texture_filtered.pixels.intensity.at(index) == (char)255;
+        };
+        auto is_in_limits = [&texture_filtered](int index) {
+          return (index >= 0) && (index < texture_filtered.pixels.intensity.size());
+        };
+        std::vector<std::pair<Eigen::Array2i,
+                              std::unique_ptr<cartographer::mapping::SubmapId>>>
+            submap_frontier_cells;
+        for (int i = 0; i < texture_filtered.pixels.intensity.size(); i++) {
+          frontier_texture.pixels.intensity.at(i) = 0;
+          frontier_texture.pixels.alpha.at(i) = 0;
+          if (is_unknown(i)) {
+            int free_neighbours = 0;
+            int unknown_neighbours = 0;
+            auto check_neighbour = [&](int index) {
+              if (is_in_limits(index) && is_unknown(index)) unknown_neighbours++;
+              if (is_in_limits(index) && is_free(index)) free_neighbours++;
+            };
+            check_neighbour(i + 1);
+            check_neighbour(i - 1);
+            check_neighbour(i + w);
+            check_neighbour(i + w + 1);
+            check_neighbour(i + w - 1);
+            check_neighbour(i - w);
+            check_neighbour(i - w + 1);
+            check_neighbour(i - w - 1);
+            if (free_neighbours >= 3 && unknown_neighbours >= 3) {
+              frontier_texture.pixels.intensity.at(i) = 255;
+              frontier_texture.pixels.alpha.at(i) = 255;
+              submap_frontier_cells.push_back(
+                  std::make_pair(FromFlatIndex(i, frontier_texture), nullptr));
+            }
+          }
+        }*/
+          new_texture->textures.push_back(texture_filtered);
+          //new_texture->textures.push_back(frontier_texture);
+      }
+
       submap_textures_ = std::move(submap_textures);
       Q_EMIT RequestSucceeded();
     }
