@@ -344,7 +344,6 @@ void RunOfflineNode(const MapBuilderFactory& map_builder_factory) {
     if (is_last_message_in_bag) {
       node.FinishTrajectory(trajectory_id);
     }
-    //ros::spinOnce();
   }
 
   // Ensure the clock is republished after the bag has been finished, during the

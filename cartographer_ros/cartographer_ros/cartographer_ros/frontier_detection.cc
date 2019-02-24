@@ -22,6 +22,11 @@ Detector::Detector(cartographer::mapping::PoseGraph2D* const pose_graph)
       ::ros::WallDuration(0.2), &Detector::CheckOptimizationEventsPeriodicallyWhenIdle, this);
 }
 
+void Detector::NotifyEnd() {
+  optimization_timer_.stop();
+  lambda_worker_.finish();
+}
+
 void Detector::InitPublisher() {
   frontier_publisher_ =
       ros::NodeHandle().advertise<visualization_msgs::MarkerArray>(
