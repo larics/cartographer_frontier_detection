@@ -21,3 +21,7 @@ When cartographer is running, add a marker display for the `/frontier_marker` to
 ### Subscribing to the frontier topic
 
 This version  of Cartographer will emit frontier updates as visualization markers ([visualization_msgs/MarkerArray](http://docs.ros.org/melodic/api/visualization_msgs/html/msg/MarkerArray.html)) on the `/frontier_marker` topic. Frontier points are split into submaps using marker namespaces and are sent already projected into the global map frame. A node which subscribes to the frontier marker topic should accumulate all frontier points it receives, for all submaps. When a newer marker for the same submap (with the same namespace) arrives, the previous frontier points for that submap should be replaced with the new version.
+
+### Demo video
+
+https://goo.gl/62zEUy
