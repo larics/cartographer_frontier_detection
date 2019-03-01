@@ -1,6 +1,6 @@
 # Frontier detection for Google Cartographer
 
-This repository contains a version of [Google Cartographer](https://github.com/googlecartographer/cartographer) modified to implement frontier detection according to the method described in the paper "Efficient Dense Frontier Detection for 2D Graph SLAM Based on Occupancy Grid Submaps".
+This repository contains a version of [Google Cartographer](https://github.com/googlecartographer/cartographer) modified to implement frontier detection according to the method described in the paper "Efficient Dense Frontier Detection for 2D Graph SLAM Based on Occupancy Grid Submaps" (pre-print available on [arXiv](https://arxiv.org/abs/1902.11061)).
 
 ### Usage
 
