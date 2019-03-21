@@ -2,9 +2,10 @@
 #define CARTOGRAPHER_ROS_CARTOGRAPHER_ROS_FRONTIER_DETECTION_H
 
 #include <cartographer/io/submap_painter.h>
+#include <cartographer/mapping/2d/submap_2d.h>
 #include <cartographer/mapping/2d/probability_grid.h>
 #include <cartographer/mapping/id.h>
-#include <cartographer/mapping/internal/2d/pose_graph_2d.h>
+#include <cartographer/mapping/pose_graph.h>
 #include <cartographer/transform/rigid_transform.h>
 #include <cartographer_ros_msgs/SubmapList.h>
 #include <ros/ros.h>
@@ -13,6 +14,7 @@
 #include <atomic>
 #include <mutex>
 #include <condition_variable>
+#include <thread>
 
 #include <boost/geometry.hpp>
 #include <boost/geometry/geometries/box.hpp>
@@ -107,7 +109,7 @@ class LambdaWorker {
 
 class Detector {
  public:
-  Detector(cartographer::mapping::PoseGraph2D* pose_graph);
+  Detector(cartographer::mapping::PoseGraph* pose_graph);
 
   // Performs local frontier edge detection.
   void HandleSubmapUpdates(
@@ -156,7 +158,7 @@ class Detector {
   bool publisher_initialized_;
   int last_optimizations_performed_;
 
-  cartographer::mapping::PoseGraph2D* pose_graph_;
+  cartographer::mapping::PoseGraph* pose_graph_;
   LambdaWorker lambda_worker_;
   ros::WallTimer optimization_timer_;
 
@@ -247,7 +249,7 @@ class Detector {
 
   class SubmapCache {
    public:
-    SubmapCache(const cartographer::mapping::PoseGraph2D* const pose_graph)
+    SubmapCache(const cartographer::mapping::PoseGraph* const pose_graph)
         : pose_graph_(pose_graph) {}
     Detector::Submap& operator()(
         const cartographer::mapping::SubmapId& id) const {
@@ -332,7 +334,7 @@ class Detector {
     mutable std::map<cartographer::mapping::SubmapId,
                      std::unique_ptr<Detector::Submap>>
         submaps_;
-    const cartographer::mapping::PoseGraph2D* const pose_graph_;
+    const cartographer::mapping::PoseGraph* const pose_graph_;
 
     cartographer::mapping::MapById<
         cartographer::mapping::SubmapId,

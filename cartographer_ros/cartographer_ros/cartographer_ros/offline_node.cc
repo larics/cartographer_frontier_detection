@@ -69,6 +69,10 @@ DEFINE_double(skip_seconds, 0,
               "Optional amount of seconds to skip from the beginning "
               "(i.e. when the earliest bag starts.). ");
 
+extern int total_submap_updates;
+extern int optimization_events;
+extern int skipped_updates;
+
 namespace cartographer_ros {
 
 constexpr char kClockTopic[] = "clock";
@@ -157,7 +161,7 @@ void RunOfflineNode(const MapBuilderFactory& map_builder_factory) {
   }
 
   ros::AsyncSpinner async_spinner(kSingleThreaded);
-  async_spinner.start();
+  //async_spinner.start();
   rosgraph_msgs::Clock clock;
   auto clock_republish_timer = node.node_handle()->createWallTimer(
       ::ros::WallDuration(kClockPublishFrequencySec),
@@ -340,17 +344,12 @@ void RunOfflineNode(const MapBuilderFactory& map_builder_factory) {
     }
     clock.clock = msg.getTime();
     clock_publisher.publish(clock);
+    ros::spinOnce();
 
     if (is_last_message_in_bag) {
       node.FinishTrajectory(trajectory_id);
     }
   }
-
-  // Ensure the clock is republished after the bag has been finished, during the
-  // final optimization, serialization, and optional indefinite spinning at the
-  // end.
-  clock_republish_timer.start();
-  node.RunFinalOptimization();
 
   const std::chrono::time_point<std::chrono::steady_clock> end_time =
       std::chrono::steady_clock::now();
@@ -369,6 +368,17 @@ void RunOfflineNode(const MapBuilderFactory& map_builder_factory) {
   CHECK_EQ(getrusage(RUSAGE_SELF, &usage), 0) << strerror(errno);
   LOG(INFO) << "Peak memory usage: " << usage.ru_maxrss << " KiB";
 #endif
+  LOG(INFO) << "Total submap update events:" << total_submap_updates;
+  LOG(INFO) << "Skipped submap update events:" << skipped_updates;
+  LOG(INFO) << "Optimization events:" << optimization_events;
+  exit(0);
+
+  // Ensure the clock is republished after the bag has been finished, during the
+  // final optimization, serialization, and optional indefinite spinning at the
+  // end.
+  clock_republish_timer.start();
+  node.RunFinalOptimization();
+
 
   if (::ros::ok() && bag_filenames.size() > 0) {
     const std::string output_filename = bag_filenames.front();

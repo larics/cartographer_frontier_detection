@@ -105,7 +105,7 @@ MapBuilderBridge::MapBuilderBridge(
       map_builder_(std::move(map_builder)),
       tf_buffer_(tf_buffer),
       optimizations_performed_(0),
-      frontier_detector_(static_cast<cartographer::mapping::PoseGraph2D*>(
+      frontier_detector_(static_cast<cartographer::mapping::PoseGraph*>(
           map_builder_->pose_graph())) {
   map_builder_->pose_graph()->SetGlobalSlamOptimizationCallback(
       std::bind(&MapBuilderBridge::OnGlobalSlamResult, this));
