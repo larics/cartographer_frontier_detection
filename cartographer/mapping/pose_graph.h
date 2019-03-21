@@ -134,6 +134,8 @@ class PoseGraph : public PoseGraphInterface {
                                         int to_trajectory_id,
                                         const transform::Rigid3d& pose,
                                         const common::Time time) = 0;
+
+  virtual int optimizations_performed() const = 0;
 };
 
 std::vector<PoseGraph::Constraint> FromProto(
