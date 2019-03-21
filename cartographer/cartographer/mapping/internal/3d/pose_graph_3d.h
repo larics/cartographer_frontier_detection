@@ -151,6 +151,9 @@ class PoseGraph3D : public PoseGraph {
       LOCKS_EXCLUDED(mutex_);
   void SetGlobalSlamOptimizationCallback(
       PoseGraphInterface::GlobalSlamOptimizationCallback callback) override;
+  int optimizations_performed() const override {
+    return 0;
+  }
   transform::Rigid3d GetInterpolatedGlobalTrajectoryPose(
       int trajectory_id, const common::Time time) const
       EXCLUSIVE_LOCKS_REQUIRED(mutex_);

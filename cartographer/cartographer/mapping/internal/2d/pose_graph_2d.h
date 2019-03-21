@@ -159,7 +159,7 @@ class PoseGraph2D : public PoseGraph {
 
   static void RegisterMetrics(metrics::FamilyFactory* family_factory);
 
-  int optimizations_performed() const {
+  int optimizations_performed() const override {
     return optimizations_performed_;
   }
 
