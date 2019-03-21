@@ -10,9 +10,13 @@
 #include <cartographer_ros/frontier_detection.h>
 #include <cartographer_ros/msg_conversion.h>
 
+int total_submap_updates = 0;
+int optimization_events = 0;
+int skipped_updates = 0;
+
 namespace frontier {
 
-Detector::Detector(cartographer::mapping::PoseGraph2D* const pose_graph)
+Detector::Detector(cartographer::mapping::PoseGraph* const pose_graph)
     : publisher_initialized_(false),
       last_optimizations_performed_(-1),
       pose_graph_(pose_graph),
@@ -79,6 +83,7 @@ bool Detector::CheckForOptimizationEvent() {
     last_optimizations_performed_ = actual_optimizations_performed;
   } else
     return false;
+  optimization_events++;
   submaps_.Invalidate();
   RebuildTree();
   PublishAllSubmaps();
@@ -272,6 +277,7 @@ Detector::GetIntersectingFinishedSubmaps(
 void Detector::HandleSubmapUpdates(
     const std::vector<cartographer::mapping::SubmapId>& submap_ids) {
   bool do_not_skip = false;
+  total_submap_updates++;
   std::vector<cartographer::mapping::PoseGraphInterface::SubmapData>
       submap_data(submap_ids.size());
   for (int i = 0; i < static_cast<int>(submap_ids.size()); i++) {
@@ -282,7 +288,10 @@ void Detector::HandleSubmapUpdates(
     }
   }
 
-  if (!do_not_skip && lambda_worker_.TaskCount() > 10) return;
+  if (!do_not_skip && lambda_worker_.TaskCount() > 10) {
+    skipped_updates++;
+    return;
+  }
 
   auto* submap_copies_ptr = new std::vector<
       std::pair<cartographer::mapping::PoseGraphInterface::SubmapData,
