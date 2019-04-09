@@ -171,13 +171,9 @@ class Detector {
           grid_original(*static_cast<const cartographer::mapping::Submap2D*>(
                              submap_data.submap.get())
                              ->grid()),
-          pose(submap_data.pose), /* * submap.local_pose().inverse() *
-              cartographer::transform::Rigid3d::Translation(
-                  (Eigen::Vector3d() << limits.max(), 0.).finished())) */
           local_pose_inverse(submap_data.submap->local_pose().inverse()),
-          to_global_position(rigid3d_to_isometry2d(pose * local_pose_inverse)),
-          to_local_submap_position(to_global_position.inverse()),
-          finished(submap_data.submap->insertion_finished()) {
+          finished(grid_copy ? false : submap_data.submap->insertion_finished()) {
+      SetGlobalPose(submap_data.pose);
       frontier_marker.header.frame_id = "map";
       frontier_marker.pose.orientation.w = 1.0;
       frontier_marker.type = visualization_msgs::Marker::POINTS;
@@ -203,10 +199,10 @@ class Detector {
     const cartographer::mapping::Grid2D& grid_original;
     std::unique_ptr<cartographer::mapping::Grid2D> grid_copy;
     bool is_copy;
-    const cartographer::transform::Rigid3d pose;
+    cartographer::transform::Rigid3d pose;
     const cartographer::transform::Rigid3d local_pose_inverse;
-    const Eigen::Isometry2d to_global_position;
-    const Eigen::Isometry2d to_local_submap_position;
+    Eigen::Isometry2d to_global_position;
+    Eigen::Isometry2d to_local_submap_position;
     Eigen::Matrix2Xd cached_frontier_marker_points_global;
     visualization_msgs::Marker frontier_marker;
     const bool finished;
@@ -218,7 +214,13 @@ class Detector {
       return grid().limits();
     }
 
-    int ToFlatIndex(const Eigen::Array2i& cell_index) const {
+    void SetGlobalPose(const cartographer::transform::Rigid3d& global_pose) {
+      pose = global_pose;
+      to_global_position = rigid3d_to_isometry2d(pose * local_pose_inverse);
+      to_local_submap_position = to_global_position.inverse();
+    }
+
+                       int ToFlatIndex(const Eigen::Array2i& cell_index) const {
       return limits().cell_limits().num_x_cells * cell_index.y() +
              cell_index.x();
     }
@@ -290,43 +292,15 @@ class Detector {
       }
     }
 
-    cartographer::mapping::MapById<
-        cartographer::mapping::SubmapId,
-        cartographer::mapping::PoseGraphInterface::SubmapData>&
-    last_all_submap_data() {
-      return last_all_submap_data_;
-    }
-
     void Invalidate() {
-      // TODO update only poses instead of clearing out everything
-
-      std::vector<std::unique_ptr<Submap>>
-          unfinished_submap_copies_to_be_preserved;
+      const auto all_submap_data = pose_graph_->GetAllSubmapData();
       for (auto& submap : submaps_) {
-        if (!submap.second->finished) {
-          unfinished_submap_copies_to_be_preserved.emplace_back(
-              std::move(submap.second));
-        }
-      }
-      submaps_.clear();
-      last_all_submap_data_ = pose_graph_->GetAllSubmapData();
-
-      for (const auto& submap_data : last_all_submap_data_) {
-        if (submap_data.data.submap->insertion_finished()) {
-          submaps_.emplace(std::make_pair(
-              submap_data.id, absl::make_unique<Detector::Submap>(
-                                  submap_data.id, submap_data.data, nullptr)));
-        }
-      }
-
-      for (auto& submap : unfinished_submap_copies_to_be_preserved) {
-        auto iter = submaps_.lower_bound(submap->id);
-        auto id = submap->id;
-        if (iter == submaps_.end() || iter->first != id) {
-          submaps_.emplace_hint(iter, std::make_pair(id, std::move(submap)));
-        }
+        submap.second->SetGlobalPose(all_submap_data.at(submap.first).pose);
       }
     }
+
+    std::map<cartographer::mapping::SubmapId,
+             std::unique_ptr<Detector::Submap>>& submaps() const { return submaps_; }
 
    private:
     using SubmapPair =
@@ -335,11 +309,6 @@ class Detector {
                      std::unique_ptr<Detector::Submap>>
         submaps_;
     const cartographer::mapping::PoseGraph* const pose_graph_;
-
-    cartographer::mapping::MapById<
-        cartographer::mapping::SubmapId,
-        cartographer::mapping::PoseGraphInterface::SubmapData>
-        last_all_submap_data_;
   };
 
   SubmapCache submaps_;
